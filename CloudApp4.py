@@ -143,25 +143,24 @@ def cached_vector_search(query_text):
         return []
     
     # 🧬 Generate the vector array embedding from Pinecone Inference
+      # Generate the vector array embedding from Pinecone Inference
     response = pc.inference.embed(
         model="multilingual-e5-large",
         inputs=[query_text],
         parameters={"input_type": "query"}
     )
     
-    # 🎯 FIX: Robust nested property parsing to ensure values are extracted perfectly
+    # 🎯 FIX FOR PINECONE 9.1.0+: Directly access the numeric array property
     try:
-        if hasattr(response, 'data') and response.data:
-            # Check if it's the structured object layout containing a data list
-            query_vector = response.data[0].values
+        if hasattr(response, 'values'):
+            query_vector = response.values
         elif isinstance(response, list) and len(response) > 0:
-            # Fallback if returned directly as a list array
-            query_vector = response[0].values if hasattr(response[0], 'values') else response[0]
+            query_vector = response[0]
         else:
-            # Root property fallback check
-            query_vector = getattr(response, 'values', response)
+            # Fallback property lookup mapping
+            query_vector = getattr(response, 'embeddings', response)
     except Exception as e:
-        # Ultimate fail-safe to let the app run on empty search rather than crashing silently
+        print(f"⚠️ Pinecone v9 Extraction Intercept: {str(e)}")
         query_vector = [0.0] * 1024 
 
     # Execute vector query against your target index plane
