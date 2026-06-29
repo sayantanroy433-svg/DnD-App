@@ -149,13 +149,12 @@ genai.configure(api_key=api_key_clean)
 pc = Pinecone(api_key=PINECONE_API_KEY)
 index = pc.Index(PINECONE_INDEX_NAME)
 
-# Clean, working instantiation function
+# 1. Clear out the broken LangChain constructor
 def get_llm_service():
-    return ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash", 
-        google_api_key=api_key_clean,
-        transport="rest",
-        temperature=0.2
+    # Use the official Client wrapper that natively handles AI Studio keys
+    return genai.GenerativeModel(
+        model_name="gemini-2.5-flash",
+        generation_config={"temperature": 0.2}
     )
 
 llm = get_llm_service()
@@ -295,7 +294,7 @@ if user_query:
         full_response = ""
         
         try:
-            for chunk in llm.stream(messages):
+            for chunk in llm.generate_content(messages, stream=True):
                 if chunk and hasattr(chunk, 'content'):
                     full_response += chunk.content
                     response_placeholder.write(full_response + "▌")
