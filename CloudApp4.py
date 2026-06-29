@@ -129,7 +129,6 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-
 # ==========================================
 # 🔑 Credentials & Global Configuration
 # ==========================================
@@ -137,33 +136,40 @@ GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 PINECONE_API_KEY = st.secrets["PINECONE_API_KEY"]
 PINECONE_INDEX_NAME = "dnd-index"
 
-# Strip hidden newline characters or spacing from the secrets string
-api_key_clean = GEMINI_API_KEY.strip().replace("\n", "").replace(" ", "")
+# 1. Clean the API Key thoroughly of breaks, tabs, or spaces
+api_key_clean = GEMINI_API_KEY.strip().replace("\n", "").replace("\r", "").replace(" ", "")
 
-# Inject cleanly into environment variables for underlying library fallbacks
+# 2. OVERWRITE both environment variables with the sanitized version
+# This overrides any broken global session data stored in the thread pool.
 os.environ["GOOGLE_API_KEY"] = api_key_clean
 os.environ["GEMINI_API_KEY"] = api_key_clean
 os.environ["PINECONE_API_KEY"] = PINECONE_API_KEY
 
-# Configure the core baseline Google client explicitly
+# 3. Configure the core Google SDK wrapper directly
 genai.configure(api_key=api_key_clean)
 
-# Initialize Pinecone
+# 4. Initialize Pinecone Database
 pc = Pinecone(api_key=PINECONE_API_KEY)
 index = pc.Index(PINECONE_INDEX_NAME)
 
-# 🛠️ Fix: Combined Service Initialization 
-@st.cache_resource
+# ==========================================
+# 🛠️ Forced Client Configuration Override
+# ==========================================
+# Explicitly create a Google Client Options mapping to bind the key directly.
+# This cuts off LangChain's fallback variable lookup, stopping the 401 loop.
+from google.api_core.client_options import ClientOptions
+custom_options = ClientOptions(api_key=api_key_clean)
+
 def get_llm_service():
     return ChatGoogleGenerativeAI(
         model="gemini-2.5-flash", 
-        google_api_key=api_key_clean, # <-- FIXED: Must be google_api_key
+        google_api_key=api_key_clean,
+        client_options=custom_options, # <-- Forces transport layer optimization
         temperature=0.2
     )
 
-# Safely initialize your unified model instance
+# Establish active orchestration instance
 llm = get_llm_service()
-
 
 # Low-latency integrated inference calculation caching
 @st.cache_data(show_spinner=False, ttl=3600)
