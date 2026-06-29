@@ -242,25 +242,64 @@ if user_query:
                 last_user_msg = next((m['content'] for m in reversed(st.session_state.chat_history) if m['role'] == 'user'), "")
                 search_query = f"{last_user_msg} {user_query}"
 
-        matched_docs = vector_store.retrieve(search_query)
+               matched_docs = vector_store.retrieve(search_query)
         unique_sources = list(set([doc.metadata["source_label"] for doc in matched_docs if "source_label" in doc.metadata]))
         
-        # 📜 FIXED: Format alternating chat logs as standard dictionaries for the modern SDK stream handler
-        native_history = []
+        # 📜 1. Compress historical turns into a flat plain-text string block
+        history_text = ""
         for m in st.session_state.chat_history[-4:]:
-            sdk_role = "user" if m["role"] == "user" else "model"
-            native_history.append({
-                "role": sdk_role,
-                "parts": [m["content"]]
-            })
+            role_label = "User" if m["role"] == "user" else "Assistant"
+            history_text += f"{role_label}: {m['content']}\n"
 
         context_str = "\n\n".join([doc.page_content for doc in matched_docs if doc.page_content != "No context found."])
         
+        # 🎯 2. Formulate your entire session prompt matrix into a single flat string variable
         final_prompt_text = f"""Please answer my question using these referenced materials.
 
 Context from Rulebooks:
 {context_str}
 
-User Question: {user_query}"""
+Recent Chat History:
+{history_text}
 
-        # Append current exchange block turn element using native array maps
+User Question: {user_query}
+Assistant:"""
+
+    # =========================================================================
+    # ⚔️ ASSISTANT CHAT GENERATION ENGINE (STABLE NATIVE STREAMING)
+    # =========================================================================
+    with st.chat_message("assistant"):
+        response_placeholder = st.empty()
+        full_response = ""
+        
+        try:
+            # 🚀 Passing a direct string bypasses list-of-dictionary schema validation completely
+            response_stream = ai_client.models.generate_content_stream(
+                model='gemini-2.5-flash',
+                contents=final_prompt_text,
+                config=types.GenerateContentConfig(
+                    temperature=0.2,
+                    system_instruction=(
+                        "You are an expert D&D 5e assistant. Answer the user's question using the provided "
+                        "retrieved context from the rulebooks. If the context does not contain the complete answer or stats, "
+                        "rely on your trusted D&D 5e knowledge to fulfill the answer accurately."
+                    )
+                )
+            )
+            
+            for chunk in response_stream:
+                if chunk.text:
+                    full_response += chunk.text
+                    response_placeholder.write(full_response + "▌")
+                    
+        except Exception as e:
+            full_response = f"⚠️ Tabletop Core Link Issue: {str(e)}"
+
+        if not full_response.strip():
+            full_response = "🧙‍♂️ The Loremaster could not assemble an answer. Try rephrasing your question."
+
+        response_placeholder.write(full_response)
+        
+        # Save exchange turns inside the active thread tracking session
+        st.session_state.chat_history.append({"role": "user", "content": user_query})
+        st.session_state.chat_history.append({"role": "assistant", "content": full_response})
