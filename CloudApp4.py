@@ -152,7 +152,8 @@ genai.configure(api_key=api_key_clean)
 pc = Pinecone(api_key=PINECONE_API_KEY)
 index = pc.Index(PINECONE_INDEX_NAME)
 
-# 🛠️ Fix: Ensure keyword argument uses 'google_api_key' instead of 'api_key'
+# 🛠️ Fix: Combined Service Initialization 
+@st.cache_resource
 def get_llm_service():
     return ChatGoogleGenerativeAI(
         model="gemini-2.5-flash", 
@@ -160,7 +161,7 @@ def get_llm_service():
         temperature=0.2
     )
 
-# Safely initialize your model instance
+# Safely initialize your unified model instance
 llm = get_llm_service()
 
 
