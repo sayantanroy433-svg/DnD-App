@@ -190,8 +190,8 @@ Powered by magic!
 # 🔑 API KEYS
 # ============================================================================
 
-GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"].strip()
-PINECONE_API_KEY = st.secrets["PINECONE_API_KEY"].strip()
+GEMINI_API_KEY = "AQ.Ab8RN6LSr93MDC2gl8q9VGE-CH59fAky3tPCQjMEI8xE0ftc1w"
+PINECONE_API_KEY = "pcsk_2J1n2y_2GERKijKxDfndAYVGApkPduPWFKBy83abPgN3VA99qxzfresLNrZopMT1bGAreq"
 
 PINECONE_INDEX_NAME = "dnd-index"
 
