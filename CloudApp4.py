@@ -138,47 +138,29 @@ PINECONE_API_KEY = st.secrets["PINECONE_API_KEY"]
 PINECONE_INDEX_NAME = "dnd-index"
 
 # Strip hidden newline characters or spacing from the secrets string
-api_key_clean = st.secrets["GEMINI_API_KEY"].strip().replace("\n", "").replace(" ", "")
-genai.configure(api_key=api_key_clean)
+api_key_clean = GEMINI_API_KEY.strip().replace("\n", "").replace(" ", "")
+
 # Inject cleanly into environment variables for underlying library fallbacks
 os.environ["GOOGLE_API_KEY"] = api_key_clean
 os.environ["GEMINI_API_KEY"] = api_key_clean
 os.environ["PINECONE_API_KEY"] = PINECONE_API_KEY
 
-model = genai.GenerativeModel("gemini-2.5-flash")
 # Configure the core baseline Google client explicitly
 genai.configure(api_key=api_key_clean)
-
-# ==========================================
-# 🛠️ Forced Client Configuration Override
-# ==========================================
-# This forces the network layer to treat your 'AQ.' string strictly as an API key,
-# bypassing the broken OAuth 2 loop caused by the system level import mocks.
-from google.api_core.client_options import ClientOptions
-custom_options = ClientOptions(api_key=api_key_clean)
-
-# Initialize LangChain using the strict client options block
-# Initialize LangChain without the client_options mapping override
-llm = ChatGoogleGenerativeAI(
-    model="gemini-2.5-flash",  
-    google_api_key=api_key_clean,  # Pass the cleaned string directly here
-    temperature=0.7
-)
 
 # Initialize Pinecone
 pc = Pinecone(api_key=PINECONE_API_KEY)
 index = pc.Index(PINECONE_INDEX_NAME)
 
-@st.cache_resource
+# 🛠️ Fix: Ensure keyword argument uses 'google_api_key' instead of 'api_key'
 def get_llm_service():
-    # CRITICAL: Change GEMINI_API_KEY to api_key_clean here!
     return ChatGoogleGenerativeAI(
         model="gemini-2.5-flash", 
-        api_key=api_key_clean, 
+        google_api_key=api_key_clean, # <-- FIXED: Must be google_api_key
         temperature=0.2
     )
 
-# This now safely initializes your model using the sanitized credentials
+# Safely initialize your model instance
 llm = get_llm_service()
 
 
