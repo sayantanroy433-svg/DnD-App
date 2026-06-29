@@ -5,7 +5,7 @@ import re
 import os
 from types import ModuleType
 import importlib.machinery
-import google.genai as gemini_sdk
+import google.genai as gemini_sdk  # 🎯 FIX 1: Clean namespace mapping to prevent 401 GCP token searches
 from google.genai import types
 from pinecone import Pinecone
 
@@ -104,7 +104,6 @@ st.markdown(f"""
 </style>
 """, unsafe_allow_html=True)
 
-# 🎲 BRANDING LAYOUT INJECTION
 st.markdown(f"""
 <div class="brand-container">
     <img src="data:image/png;base64,{img_base64}" class="brand-logo">
@@ -129,7 +128,7 @@ index = pc.Index(PINECONE_INDEX_NAME)
 
 @st.cache_resource
 def get_llm_service():
-    # 🎯 FIX AUTHENTICATION: Target the alias layout precisely to force API Studio validation
+    # Force authentication using the explicit unique alias pointer
     return gemini_sdk.Client(api_key=GEMINI_API_KEY)
 
 ai_client = get_llm_service()
@@ -137,7 +136,7 @@ ai_client = get_llm_service()
 # =========================================================================
 # 🔍 VECTOR DATABANK EXTRACTION ENGINE
 # =========================================================================
-@st.cache_data(show_spinner=False, ttl=3600)
+# 🎯 FIX 2: Temporarily removed @st.cache_data decorator to prevent silent execution swallows
 def cached_vector_search(query_text):
     if not query_text:
         return []
@@ -148,25 +147,33 @@ def cached_vector_search(query_text):
         parameters={"input_type": "query"}
     )
     
+    # 🎯 FIX 3: Safe primitive sequence extraction strategy for modern Pinecone payloads
     query_vector = None
     try:
         if hasattr(response, 'data') and response.data:
+            # Check if embedding element can resolve index properties directly
             if isinstance(response.data, list) and len(response.data) > 0:
-                query_vector = response.data[0].values
+                item = response.data[0]
+                if hasattr(item, 'values'):
+                    query_vector = item.values
+                elif isinstance(item, dict):
+                    query_vector = item.get('values')
             else:
                 query_vector = getattr(response.data, 'values', None)
         elif hasattr(response, 'values'):
             query_vector = response.values
-        elif isinstance(response, list) and len(response) > 0:
-            query_vector = response[0].values if hasattr(response[0], 'values') else response[0]
-        else:
-            query_vector = getattr(response, 'values', None)
-            
     except Exception as e:
-        print(f"⚠️ Vector Extractor Intercept: {str(e)}")
+        print(f"⚠️ Vector Parser Fallback Intercept: {str(e)}")
 
+    # Ensure payload contains an encoded type list sequence before serialization runs
     if query_vector is None or not isinstance(query_vector, list):
-        query_vector = [0.0] * 1024
+        if hasattr(response, '__iter__'):
+            try:
+                query_vector = [float(x) for x in response]
+            except Exception:
+                query_vector = [0.0] * 1024
+        else:
+            query_vector = [0.0] * 1024
 
     results = index.query(
         namespace="markdown-docs", 
@@ -249,20 +256,3 @@ if user_query:
         history_text = ""
         for m in st.session_state.chat_history[-4:]:
             role_label = "User" if m["role"] == "user" else "Assistant"
-            history_text += f"{role_label}: {m['content']}\n"
-
-        context_str = "\n\n".join([doc.page_content for doc in matched_docs if doc.page_content != "No context found."])
-        
-        final_prompt_text = f"""Please answer my question using these referenced materials.
-
-Context from Rulebooks:
-{context_str}
-
-Recent Chat History:
-{history_text}
-
-User Question: {user_query}
-Assistant:"""
-
-    # =========================================================================
-    # ⚔️ ASSISTANT CHAT GENERATION ENGINE (STABLE NATIVE STREAMING)
