@@ -143,27 +143,45 @@ def cached_vector_search(query_text):
         return []
     
     # 🧬 Generate the vector array embedding from Pinecone Inference
-      # Generate the vector array embedding from Pinecone Inference
     response = pc.inference.embed(
         model="multilingual-e5-large",
         inputs=[query_text],
         parameters={"input_type": "query"}
     )
     
-    # 🎯 FIX FOR PINECONE 9.1.0+: Directly access the numeric array property
+    # 🎯 CORRECTED VALUE UNPACKING PIPELINE FOR MODERN PINECONE SDK
+    query_vector = None
     try:
-        if hasattr(response, 'values'):
+        # 1. Check if the response follows the standard structured data payload
+        if hasattr(response, 'data') and response.data:
+            first_record = response.data[0]
+            if hasattr(first_record, 'values'):
+                query_vector = first_record.values
+            elif isinstance(first_record, dict):
+                query_vector = first_record.get('values')
+                
+        # 2. Check if the root element contains a global values parameter fallback
+        elif hasattr(response, 'values'):
             query_vector = response.values
+            
+        # 3. Handle cases where the data array is wrapped in a native dictionary
+        elif isinstance(response, dict):
+            data_list = response.get('data', [])
+            if data_list:
+                query_vector = data_list[0].get('values') if isinstance(data_list[0], dict) else getattr(data_list[0], 'values', None)
+                
+        # 4. Fallback if it was returned directly as a flat list array
         elif isinstance(response, list) and len(response) > 0:
-            query_vector = response[0]
-        else:
-            # Fallback property lookup mapping
-            query_vector = getattr(response, 'embeddings', response)
+            query_vector = response[0].values if hasattr(response[0], 'values') else response[0]
+            
     except Exception as e:
-        print(f"⚠️ Pinecone v9 Extraction Intercept: {str(e)}")
-        query_vector = [0.0] * 1024 
+        print(f"⚠️ Vector Extractor Pipeline Encountered Exception: {str(e)}")
 
-    # Execute vector query against your target index plane
+    # 🛡️ EMERGENCY SAFEGUARD: If extraction failed, provide a clean zero-vector fallback
+    if query_vector is None or not isinstance(query_vector, list):
+        query_vector = [0.0] * 1024
+
+    # Execute vector query against your target index plane safely
     results = index.query(
         namespace="markdown-docs", 
         vector=query_vector,
@@ -174,12 +192,8 @@ def cached_vector_search(query_text):
     serialized_docs = []
     matches = results.get("matches", [])
     
-    print(f"\n--- 🎲 LOCAL VECTOR SEARCH RESULTS FOR: '{query_text}' ---")
-    
     for idx, match in enumerate(matches):
-        score = match.get("score", 0.0)
         meta = match.get("metadata", {})
-        
         text_content = meta.get("chunk_text", "No context found.")
         source_book = meta.get("source_file", "Unknown Rulebook")
         chunk_idx = meta.get("chunk_index", "N/A")
