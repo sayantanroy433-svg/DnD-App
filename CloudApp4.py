@@ -133,35 +133,23 @@ st.markdown(f"""
 # 🔑 Credentials & Global Configuration
 # ==========================================
 GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
-api_key_clean = st.secrets["GEMINI_API_KEY"]
 PINECONE_API_KEY = st.secrets["PINECONE_API_KEY"]
-pinecone_key = st.secrets["PINECONE_API_KEY"]
 PINECONE_INDEX_NAME = "dnd-index"
 
-# 1. Clean the API Key thoroughly of breaks, tabs, or spaces
+# Clean the API Key thoroughly
 api_key_clean = GEMINI_API_KEY.strip().replace("\n", "").replace("\r", "").replace(" ", "")
 
-# 2. OVERWRITE both environment variables with the sanitized version
-# This overrides any broken global session data stored in the thread pool.
+# Overwrite environment variables for global fallback safety
 os.environ["GOOGLE_API_KEY"] = api_key_clean
 os.environ["GEMINI_API_KEY"] = api_key_clean
 os.environ["PINECONE_API_KEY"] = PINECONE_API_KEY
 
-# 3. Configure the core Google SDK wrapper directly
+# Configure database elements
 genai.configure(api_key=api_key_clean)
-
-# 4. Initialize Pinecone Database
 pc = Pinecone(api_key=PINECONE_API_KEY)
 index = pc.Index(PINECONE_INDEX_NAME)
 
-# ==========================================
-# 🛠️ Forced Client Configuration Override
-# ==========================================
-# Explicitly create a Google Client Options mapping to bind the key directly.
-# This cuts off LangChain's fallback variable lookup, stopping the 401 loop.
-from google.api_core.client_options import ClientOptions
-custom_options = ClientOptions(api_key=api_key_clean)
-
+# Clean, working instantiation function
 def get_llm_service():
     return ChatGoogleGenerativeAI(
         model="gemini-2.5-flash", 
@@ -169,7 +157,6 @@ def get_llm_service():
         temperature=0.2
     )
 
-# Establish active orchestration instance
 llm = get_llm_service()
 
 # Low-latency integrated inference calculation caching
