@@ -149,30 +149,19 @@ def cached_vector_search(query_text):
         parameters={"input_type": "query"}
     )
     
-    # 🎯 CORRECTED VALUE UNPACKING PIPELINE FOR MODERN PINECONE SDK
+    # 🎯 FIX FOR MODERN PINECONE SDK: Slice index 0 of the data list payload
     query_vector = None
     try:
-        # 1. Check if the response follows the standard structured data payload
         if hasattr(response, 'data') and response.data:
-            first_record = response.data[0]
-            if hasattr(first_record, 'values'):
-                query_vector = first_record.values
-            elif isinstance(first_record, dict):
-                query_vector = first_record.get('values')
-                
-        # 2. Check if the root element contains a global values parameter fallback
-        elif hasattr(response, 'values'):
-            query_vector = response.values
-            
-        # 3. Handle cases where the data array is wrapped in a native dictionary
-        elif isinstance(response, dict):
-            data_list = response.get('data', [])
-            if data_list:
-                query_vector = data_list[0].get('values') if isinstance(data_list[0], dict) else getattr(data_list[0], 'values', None)
-                
-        # 4. Fallback if it was returned directly as a flat list array
+            # Official Pinecone layout: response.data is a list
+            if isinstance(response.data, list) and len(response.data) > 0:
+                query_vector = response.data[0].values
+            else:
+                query_vector = getattr(response.data, 'values', None)
         elif isinstance(response, list) and len(response) > 0:
             query_vector = response[0].values if hasattr(response[0], 'values') else response[0]
+        else:
+            query_vector = getattr(response, 'values', None)
             
     except Exception as e:
         print(f"⚠️ Vector Extractor Pipeline Encountered Exception: {str(e)}")
