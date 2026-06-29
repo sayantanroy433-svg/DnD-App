@@ -157,10 +157,10 @@ from google.api_core.client_options import ClientOptions
 custom_options = ClientOptions(api_key=api_key_clean)
 
 # Initialize LangChain using the strict client options block
+# Initialize LangChain without the client_options mapping override
 llm = ChatGoogleGenerativeAI(
     model="gemini-2.5-flash",  
-    google_api_key=api_key_clean,
-    client_options=custom_options,  # <-- This is the critical line
+    google_api_key=api_key_clean,  # Pass the cleaned string directly here
     temperature=0.7
 )
 
