@@ -4,6 +4,11 @@ import sys
 import re
 from types import ModuleType
 import importlib.machinery
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.messages import HumanMessage, AIMessage
+from pinecone import Pinecone
+import os
 
 # Ultimate catch-all dynamic mock with structural loader compliance for Python 3.14
 @st.cache_resource
@@ -34,12 +39,6 @@ def fix_environment_imports():
 
     sys.meta_path.insert(0, MockFinder())
 fix_environment_imports()
-
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.messages import HumanMessage, AIMessage
-from pinecone import Pinecone
-import os
 
 # 🎨 CUSTOM STYLING: Dark Fantasy & Tabletop DM Screen Theme
 st.set_page_config(page_title="Pocket D&D Loremaster", page_icon="🎲", layout="centered")
@@ -139,6 +138,11 @@ PINECONE_INDEX_NAME = "dnd-index"
 os.environ["GOOGLE_API_KEY"] = GEMINI_API_KEY
 os.environ["GEMINI_API_KEY"] = GEMINI_API_KEY
 os.environ["PINECONE_API_KEY"] = PINECONE_API_KEY
+
+llm = ChatGoogleGenerativeAI(
+    model="gemini-2.5-flash",  # or your preferred gemini model version
+    google_api_key=GEMINI_API_KEY
+)
 
 pc = Pinecone(api_key=PINECONE_API_KEY)
 index = pc.Index(PINECONE_INDEX_NAME)
