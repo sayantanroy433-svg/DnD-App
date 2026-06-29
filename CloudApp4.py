@@ -293,24 +293,39 @@ if user_query:
         response_placeholder = st.empty()
         full_response = ""
         
-        try:
+             try:
             for chunk in llm.stream(messages):
                 if chunk and hasattr(chunk, 'content'):
                     full_response += chunk.content
                     response_placeholder.write(full_response + "▌")
         except Exception as e:
             full_response = f"⚠️ Runtime Connection Issue: {str(e)}"
-            
+        
         if not full_response.strip():
             full_response = "🧙‍♂️ The Loremaster could not assemble an answer. Try rephrasing your question."
-            
+        
+        # Ensure the final message replaces the blinking cursor line
         response_placeholder.write(full_response)
+        
+        # 💾 MEMORY FIX: Append current exchange so history tracks across turns
+        st.session_state.chat_history.append({"role": "user", "content": user_query})
+        st.session_state.chat_history.append({"role": "assistant", "content": full_response})
         
         # 📌 VERIFIED SOURCES CITATION DISPLAY WITH SOURCE CONTEXT SNIPPETS
         if unique_sources and "could not assemble" not in full_response:
-            sources_html = "<div style='margin-top: 15px; padding-top: 8px; border-top: 1px dashed #614e3f; color: #a18b76; font-size: 0.85em; font-style: italic;'>---</div>"
+            sources_html = """
+            <div style='margin-top: 15px; padding-top: 8px; border-top: 1px dashed #614e3f; 
+                        color: #a18b76; font-size: 0.85em; font-style: italic;'>
+                Reference Lore Archives:
+            </div>
+            """
             st.markdown(sources_html, unsafe_allow_html=True)
             
+            # Dynamically loop and fill the expander boxes with matching text blocks
             for source in unique_sources:
                 with st.expander(source):
-                    matching_text = next((doc.page_content for doc in matched_docs if doc.metadata.get("source_label") == source), "Context block read error.")
+                    matching_text = next(
+                        (doc.page_content for doc in matched_docs if doc.metadata.get("source_label") == source), 
+                        "Context block read error."
+                    )
+                    st.markdown(matching_text)
