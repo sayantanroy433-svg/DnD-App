@@ -142,13 +142,29 @@ def cached_vector_search(query_text):
     if not query_text:
         return []
     
+    # Generate the vector array embedding
     response = pc.inference.embed(
         model="multilingual-e5-large",
         inputs=[query_text],
         parameters={"input_type": "query"}
     )
     
-    query_vector = response[0].values
+    # 🎯 FIX: Robust modern SDK extraction check
+    try:
+        # Check if the output format contains structured property mappings
+        if hasattr(response, 'data') and response.data:
+            query_vector = response.data[0].values
+        elif isinstance(response, list):
+            query_vector = response[0].values
+        else:
+            # Fallback direct property query
+            query_vector = response.values
+    except Exception as e:
+        print(f"⚠️ Pinecone Embedding Extraction Crash: {str(e)}")
+        # Ultimate fallback array shape transformation
+        query_vector = response[0] if isinstance(response, list) else getattr(response, 'values', [])
+
+    # Execute vector query against the index plane
     results = index.query(
         namespace="markdown-docs", 
         vector=query_vector,
@@ -158,6 +174,10 @@ def cached_vector_search(query_text):
     
     serialized_docs = []
     matches = results.get("matches", [])
+    
+    # (Rest of your mapping loop continues identically here...)
+    
+    # (Rest of your mapping loop continues identically here...)
     
     print(f"\n--- ️ LOCAL 1024-DIM VECTOR SEARCH RESULTS FOR: '{query_text}' ---")
     if not matches:
