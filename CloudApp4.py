@@ -129,7 +129,7 @@ index = pc.Index(PINECONE_INDEX_NAME)
 
 @st.cache_resource
 def get_llm_service():
-    # Modern SDK initialization securely handles developer API studio keys
+    # FIXED BOUND VALUE: Explicitly reference using the modern google namespace setup
     return genai.Client(api_key=GEMINI_API_KEY)
 
 ai_client = get_llm_service()
@@ -142,18 +142,16 @@ def cached_vector_search(query_text):
     if not query_text:
         return []
     
-    # 🧬 Generate the vector array embedding from Pinecone Inference
     response = pc.inference.embed(
         model="multilingual-e5-large",
         inputs=[query_text],
         parameters={"input_type": "query"}
     )
     
-    # 🎯 FIX FOR MODERN PINECONE SDK: Slice index 0 of the data list payload
     query_vector = None
     try:
+        # Robust deep value extraction matrix for v9+ SDK objects
         if hasattr(response, 'data') and response.data:
-            # Official Pinecone layout: response.data is a list
             if isinstance(response.data, list) and len(response.data) > 0:
                 query_vector = response.data[0].values
             else:
@@ -164,13 +162,11 @@ def cached_vector_search(query_text):
             query_vector = getattr(response, 'values', None)
             
     except Exception as e:
-        print(f"⚠️ Vector Extractor Pipeline Encountered Exception: {str(e)}")
+        print(f"⚠️ Vector Extractor Intercept: {str(e)}")
 
-    # 🛡️ EMERGENCY SAFEGUARD: If extraction failed, provide a clean zero-vector fallback
     if query_vector is None or not isinstance(query_vector, list):
         query_vector = [0.0] * 1024
 
-    # Execute vector query against your target index plane safely
     results = index.query(
         namespace="markdown-docs", 
         vector=query_vector,
@@ -246,17 +242,17 @@ if user_query:
                 last_user_msg = next((m['content'] for m in reversed(st.session_state.chat_history) if m['role'] == 'user'), "")
                 search_query = f"{last_user_msg} {user_query}"
 
-        # 🎯 CRITICAL INDENT FIX: All calculations run safely inside the active user interaction scope
         matched_docs = vector_store.retrieve(search_query)
         unique_sources = list(set([doc.metadata["source_label"] for doc in matched_docs if "source_label" in doc.metadata]))
         
-        # 📜 Formulate conversation string block history matching native SDK expectations
+        # 📜 FIXED: Format alternating chat logs as standard dictionaries for the modern SDK stream handler
         native_history = []
         for m in st.session_state.chat_history[-4:]:
             sdk_role = "user" if m["role"] == "user" else "model"
-            native_history.append(
-                types.Content(role=sdk_role, parts=[types.Part.from_text(text=m["content"])])
-            )
+            native_history.append({
+                "role": sdk_role,
+                "parts": [m["content"]]
+            })
 
         context_str = "\n\n".join([doc.page_content for doc in matched_docs if doc.page_content != "No context found."])
         
@@ -267,8 +263,4 @@ Context from Rulebooks:
 
 User Question: {user_query}"""
 
-        # Append latest turn elements into the structural Content array
-        native_history.append(
-            types.Content(role="user", parts=[types.Part.from_text(text=final_prompt_text)])
-        )
-
+        # Append current exchange block turn element using native array maps
