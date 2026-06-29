@@ -129,21 +129,41 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 
-# 🔑 Credentials & Global Instance Configuration
+# ==========================================
+# 🔑 Credentials & Global Configuration
+# ==========================================
 GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 PINECONE_API_KEY = st.secrets["PINECONE_API_KEY"]
 PINECONE_INDEX_NAME = "dnd-index"
 
-# Inject explicitly into environment variables so LangChain's fallbacks work seamlessly
-os.environ["GOOGLE_API_KEY"] = GEMINI_API_KEY
-os.environ["GEMINI_API_KEY"] = GEMINI_API_KEY
+# Strip hidden newline characters or spacing from the secrets string
+api_key_clean = GEMINI_API_KEY.strip().replace("\n", "").replace(" ", "")
+
+# Inject cleanly into environment variables for underlying library fallbacks
+os.environ["GOOGLE_API_KEY"] = api_key_clean
+os.environ["GEMINI_API_KEY"] = api_key_clean
 os.environ["PINECONE_API_KEY"] = PINECONE_API_KEY
 
+# Configure the core baseline Google client explicitly
+genai.configure(api_key=api_key_clean)
+
+# ==========================================
+# 🛠️ Forced Client Configuration Override
+# ==========================================
+# This forces the network layer to treat your 'AQ.' string strictly as an API key,
+# bypassing the broken OAuth 2 loop caused by the system level import mocks.
+from google.api_core.client_options import ClientOptions
+custom_options = ClientOptions(api_key=api_key_clean)
+
+# Initialize LangChain using the strict client options block
 llm = ChatGoogleGenerativeAI(
-    model="gemini-2.5-flash",  # or your preferred gemini model version
-    google_api_key=GEMINI_API_KEY
+    model="gemini-2.5-flash",  
+    google_api_key=api_key_clean,
+    client_options=custom_options,  # <-- This is the critical line
+    temperature=0.7
 )
 
+# Initialize Pinecone
 pc = Pinecone(api_key=PINECONE_API_KEY)
 index = pc.Index(PINECONE_INDEX_NAME)
 
