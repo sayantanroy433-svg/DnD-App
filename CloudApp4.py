@@ -137,7 +137,7 @@ PINECONE_API_KEY = st.secrets["PINECONE_API_KEY"]
 PINECONE_INDEX_NAME = "dnd-index"
 
 # Clean the API Key thoroughly
-api_key_clean = GEMINI_API_KEY.strip().replace("\n", "").replace("\r", "").replace(" ", "")
+api_key_clean = GEMINI_API_KEY
 
 # Overwrite environment variables for global fallback safety
 os.environ["GOOGLE_API_KEY"] = api_key_clean
