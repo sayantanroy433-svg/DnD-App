@@ -274,66 +274,58 @@ if user_query:
                 last_user_msg = next((m['content'] for m in reversed(st.session_state.chat_history) if m['role'] == 'user'), "")
                 search_query = f"{last_user_msg} {user_query}"
 
+                # ==========================================
+        # 🔍 Context Retrieval & Assembly
+        # ==========================================
         matched_docs = vector_store.retrieve(search_query)
         unique_sources = list(set([doc.metadata["source_label"] for doc in matched_docs if "source_label" in doc.metadata]))
         
-        # 📜 Build a clean historical conversation list
-        messages = []
+        # 📜 1. Build chat history as a clean, plain text block
+        history_text = ""
         for m in st.session_state.chat_history[-4:]:
-            if m["role"] == "user":
-                messages.append(HumanMessage(content=m["content"]))
-            else:
-                messages.append(AIMessage(content=m["content"]))
+            role_label = "User" if m["role"] == "user" else "Assistant"
+            history_text += f"{role_label}: {m['content']}\n"
 
         context_str = "\n\n".join([doc.page_content for doc in matched_docs if doc.page_content != "No context found."])
         
-        # 🎯 Combine system rules, vector context, and query into ONE final message
-        final_prompt = f"""You are an expert D&D 5e assistant. Answer the user's question using the following retrieved context from the rulebooks. If the context does not contain the complete answer or stats, rely on your trusted D&D 5e knowledge to fulfill the answer accurately.
+        # 🎯 2. Combine rules, database context, history, and the new query into ONE plain string
+        final_text_prompt = f"""You are an expert D&D 5e assistant. Answer the user's question using the following retrieved context from the rulebooks. If the context does not contain the complete answer or stats, rely on your trusted D&D 5e knowledge to fulfill the answer accurately.
 
-Context:
+Context from Rulebooks:
 {context_str}
 
-User Question: {user_query}"""
+Recent Chat History:
+{history_text}
 
-        messages.append(HumanMessage(content=final_prompt))
+Current User Question: {user_query}
+Assistant:"""
 
+    # ==========================================
+    # 🧙‍♂️ Assistant Chat Display & Streaming Response
+    # ==========================================
     with st.chat_message("assistant"):
         response_placeholder = st.empty()
         full_response = ""
         
         try:
-            for chunk in llm.generate_content(messages, stream=True):
+            # 🚀 3. Try LangChain Streaming
+            for chunk in llm.stream(final_text_prompt):
                 if chunk and hasattr(chunk, 'content'):
                     full_response += chunk.content
                     response_placeholder.write(full_response + "▌")
         except Exception as e:
-            full_response = f"⚠️ Runtime Connection Issue: {str(e)}"
-        
-        if not full_response.strip():
-            full_response = "🧙‍♂️ The Loremaster could not assemble an answer. Try rephrasing your question."
-        
-        # Ensure the final message replaces the blinking cursor line
+            # 🔄 Fallback to Native SDK Streaming if LangChain throws validation errors
+            try:
+                for chunk in llm.generate_content(final_text_prompt, stream=True):
+                    if chunk and hasattr(chunk, 'text'):
+                        full_response += chunk.text
+                        response_placeholder.write(full_response + "▌")
+            except Exception as native_err:
+                full_response = f"⚠️ Runtime Connection Issue: {str(native_err)}"
+
+        # Final visual lock on the complete answer
         response_placeholder.write(full_response)
         
-        # 💾 MEMORY FIX: Append current exchange so history tracks across turns
+        # 💾 Save exchange to session history
         st.session_state.chat_history.append({"role": "user", "content": user_query})
         st.session_state.chat_history.append({"role": "assistant", "content": full_response})
-        
-        # 📌 VERIFIED SOURCES CITATION DISPLAY WITH SOURCE CONTEXT SNIPPETS
-        if unique_sources and "could not assemble" not in full_response:
-            sources_html = """
-            <div style='margin-top: 15px; padding-top: 8px; border-top: 1px dashed #614e3f; 
-                        color: #a18b76; font-size: 0.85em; font-style: italic;'>
-                Reference Lore Archives:
-            </div>
-            """
-            st.markdown(sources_html, unsafe_allow_html=True)
-            
-            # Dynamically loop and fill the expander boxes with matching text blocks
-            for source in unique_sources:
-                with st.expander(source):
-                    matching_text = next(
-                        (doc.page_content for doc in matched_docs if doc.metadata.get("source_label") == source), 
-                        "Context block read error."
-                    )
-                    st.markdown(matching_text)
