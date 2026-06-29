@@ -280,7 +280,7 @@ if user_query:
                 search_query = f"{last_user_msg} {user_query}"
 
                 matched_docs = vector_store.retrieve(search_query)
-        unique_sources = list(set([doc.metadata["source_label"] for doc in matched_docs if "source_label" in doc.metadata]))
+                unique_sources = list(set([doc.metadata["source_label"] for doc in matched_docs if "source_label" in doc.metadata]))
         
         # 📜 1. Formulate chat history matching the Google SDK structure
         native_history = []
