@@ -135,12 +135,16 @@ GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 PINECONE_API_KEY = st.secrets["PINECONE_API_KEY"]
 PINECONE_INDEX_NAME = "dnd-index"
 
+# Inject explicitly into environment variables so LangChain's fallbacks work seamlessly
+os.environ["GOOGLE_API_KEY"] = GEMINI_API_KEY
+os.environ["PINECONE_API_KEY"] = PINECONE_API_KEY
+
 pc = Pinecone(api_key=PINECONE_API_KEY)
 index = pc.Index(PINECONE_INDEX_NAME)
 
 @st.cache_resource
 def get_llm_service():
-    return ChatGoogleGenerativeAI(model="gemini-2.5-flash", google_api_key=GEMINI_API_KEY, temperature=0.2)
+    return ChatGoogleGenerativeAI(model="gemini-2.5-flash", api_key=GEMINI_API_KEY, temperature=0.2)
 
 llm = get_llm_service()
 
