@@ -6,7 +6,7 @@ from types import ModuleType
 import importlib.machinery
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.messages import HumanMessage, tr
 from pinecone import Pinecone
 import os
 import google.generativeai as genai
@@ -293,7 +293,7 @@ if user_query:
         response_placeholder = st.empty()
         full_response = ""
         
-             try:
+        try:
             for chunk in llm.stream(messages):
                 if chunk and hasattr(chunk, 'content'):
                     full_response += chunk.content
