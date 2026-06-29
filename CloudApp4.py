@@ -246,6 +246,7 @@ qa_prompt = get_prompt_template()
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
+# Display history
 for message in st.session_state.chat_history:
     with st.chat_message(message["role"]):
         st.write(message["content"])
@@ -276,18 +277,25 @@ if user_query:
         matched_docs = vector_store.retrieve(search_query)
         unique_sources = list(set([doc.metadata["source_label"] for doc in matched_docs if "source_label" in doc.metadata]))
         
-        formatted_history = [
-            HumanMessage(content=m["content"]) if m["role"] == "user" else AIMessage(content=m["content"])
-            for m in st.session_state.chat_history[-4:]
-        ]
+        # 📜 Build a clean historical conversation list
+        messages = []
+        for m in st.session_state.chat_history[-4:]:
+            if m["role"] == "user":
+                messages.append(HumanMessage(content=m["content"]))
+            else:
+                messages.append(AIMessage(content=m["content"]))
 
         context_str = "\n\n".join([doc.page_content for doc in matched_docs if doc.page_content != "No context found."])
         
-        messages = qa_prompt.format_messages(
-            context=context_str,
-            chat_history=formatted_history,
-            input=user_query
-        )
+        # 🎯 Combine system rules, vector context, and query into ONE final message
+        final_prompt = f"""You are an expert D&D 5e assistant. Answer the user's question using the following retrieved context from the rulebooks. If the context does not contain the complete answer or stats, rely on your trusted D&D 5e knowledge to fulfill the answer accurately.
+
+Context:
+{context_str}
+
+User Question: {user_query}"""
+
+        messages.append(HumanMessage(content=final_prompt))
 
     with st.chat_message("assistant"):
         response_placeholder = st.empty()
