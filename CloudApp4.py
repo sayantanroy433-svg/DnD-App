@@ -1,3 +1,4 @@
+import base64
 import streamlit as st
 import sys
 import re
@@ -41,50 +42,93 @@ from pinecone import Pinecone
 import os
 
 # 🎨 CUSTOM STYLING: Dark Fantasy & Tabletop DM Screen Theme
-st.set_page_config(page_title="Pocket D&D Loremaster", page_icon="🧙‍♂️", layout="centered")
+st.set_page_config(page_title="Pocket D&D Loremaster", page_icon="🎲", layout="centered")
 
-st.markdown("""
+def get_base64_image(image_path):
+    try:
+        with open(image_path, "rb") as img_file:
+            return base64.b64encode(img_file.read()).decode()
+    except Exception:
+        return ""
+
+# Save your new checkerboard d20 image into your folder and ensure this filename matches perfectly
+img_base64 = get_base64_image("your_d20_image.png")
+
+st.markdown(f"""
 <style>
     /* Global Background and Typography */
-    .stApp {
+    .stApp {{
         background-color: #1a1613 !important;
         background-image: radial-gradient(#2d2219 1px, transparent 0) !important;
         background-size: 24px 24px !important;
         color: #e3d1be !important;
         font-family: 'Georgia', serif !important;
-    }
+    }}
+    
+    /* Centralized Layout Container */
+    .brand-container {{
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        width: 100%;
+        margin-bottom: 15px;
+    }}
+    
+    /* ✅ FIXED: Swapped blend modes to 'screen' to completely evaporate the fake checkerboard mesh lines */
+    .brand-logo {{
+        width: 110px;
+        height: auto;
+        margin-bottom: 15px;
+        mix-blend-mode: screen !important;
+    }}
     
     /* Header Customization */
-    h1 {
+    h1 {{
         color: #d4af37 !important; /* Gold */
         font-family: 'Georgia', serif !important;
         text-shadow: 2px 2px 4px #000000;
-        border-bottom: 2px solid #8c2d19; /* Deep Red Crimson line */
-        padding-bottom: 10px;
-    }
+        
+        text-decoration: underline !important;
+        text-decoration-color: #8c2d19 !important; /* Deep Red Crimson */
+        text-underline-offset: 12px !important;    
+        text-decoration-thickness: 2px !important;  
+        
+        margin: 0px !important;
+        padding-bottom: 5px !important;
+        width: 100%;
+    }}
     
     /* Text Color Normalization */
-    .stMarkdown, p, span, label {
+    .stMarkdown, p, span, label {{
         color: #e3d1be !important;
-    }
+    }}
     
     /* Input Box Customization */
-    .stChatInput textarea {
+    .stChatInput textarea {{
         background-color: #2b221a !important;
         color: #f5eccd !important;
         border: 1px solid #8c2d19 !important;
         border-radius: 4px !important;
-    }
+    }}
     
     /* Spinner Styling */
-    .stSpinner > div {
+    .stSpinner > div {{
         border-top-color: #d4af37 !important;
-    }
+    }}
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🧙‍♂️ Your Pocket D&D Loremaster")
-st.markdown("<p style='color: #8a7663; font-style: italic;'>Powered by magic!</p>", unsafe_allow_html=True)
+# 🎲 BRANDING LAYOUT INJECTION
+st.markdown(f"""
+<div class="brand-container">
+    <img src="data:image/png;base64,{img_base64}" class="brand-logo">
+    <h1>Pocket D&D Loremaster</h1>
+    <p style='color: #8a7663; font-style: italic; margin-top: 18px;'>Powered by magic!</p>
+</div>
+""", unsafe_allow_html=True)
+
 
 # 🔑 Credentials & Global Instance Configuration
 GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
