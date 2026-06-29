@@ -138,13 +138,14 @@ PINECONE_API_KEY = st.secrets["PINECONE_API_KEY"]
 PINECONE_INDEX_NAME = "dnd-index"
 
 # Strip hidden newline characters or spacing from the secrets string
-api_key_clean = GEMINI_API_KEY.strip().replace("\n", "").replace(" ", "")
-
+api_key_clean = st.secrets["GEMINI_API_KEY"].strip().replace("\n", "").replace(" ", "")
+genai.configure(api_key=api_key_clean)
 # Inject cleanly into environment variables for underlying library fallbacks
 os.environ["GOOGLE_API_KEY"] = api_key_clean
 os.environ["GEMINI_API_KEY"] = api_key_clean
 os.environ["PINECONE_API_KEY"] = PINECONE_API_KEY
 
+model = genai.GenerativeModel("gemini-2.5-flash")
 # Configure the core baseline Google client explicitly
 genai.configure(api_key=api_key_clean)
 
@@ -170,9 +171,16 @@ index = pc.Index(PINECONE_INDEX_NAME)
 
 @st.cache_resource
 def get_llm_service():
-    return ChatGoogleGenerativeAI(model="gemini-2.5-flash", api_key=GEMINI_API_KEY, temperature=0.2)
+    # CRITICAL: Change GEMINI_API_KEY to api_key_clean here!
+    return ChatGoogleGenerativeAI(
+        model="gemini-2.5-flash", 
+        api_key=api_key_clean, 
+        temperature=0.2
+    )
 
+# This now safely initializes your model using the sanitized credentials
 llm = get_llm_service()
+
 
 # Low-latency integrated inference calculation caching
 @st.cache_data(show_spinner=False, ttl=3600)
