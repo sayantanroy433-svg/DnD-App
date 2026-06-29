@@ -5,7 +5,7 @@ import re
 import os
 from types import ModuleType
 import importlib.machinery
-import google.genai as gemini_sdk  # 🎯 FIX 1: Clean namespace mapping to prevent 401 GCP token searches
+import google.genai as gemini_sdk  # 🎯 FIX 1: Clean alias separation to stop 401 GCP token lookups
 from google.genai import types
 from pinecone import Pinecone
 
@@ -128,7 +128,7 @@ index = pc.Index(PINECONE_INDEX_NAME)
 
 @st.cache_resource
 def get_llm_service():
-    # Force authentication using the explicit unique alias pointer
+    # Force direct authentication using the explicit unique SDK namespace
     return gemini_sdk.Client(api_key=GEMINI_API_KEY)
 
 ai_client = get_llm_service()
@@ -136,7 +136,7 @@ ai_client = get_llm_service()
 # =========================================================================
 # 🔍 VECTOR DATABANK EXTRACTION ENGINE
 # =========================================================================
-# 🎯 FIX 2: Temporarily removed @st.cache_data decorator to prevent silent execution swallows
+# 🎯 FIX 2: Removed @st.cache_data completely to display vector parsing errors directly on the screen
 def cached_vector_search(query_text):
     if not query_text:
         return []
@@ -147,32 +147,26 @@ def cached_vector_search(query_text):
         parameters={"input_type": "query"}
     )
     
-    # 🎯 FIX 3: Safe primitive sequence extraction strategy for modern Pinecone payloads
+    # 🎯 FIX 3: Definitive extraction structure designed specifically for modern Pinecone object loops
     query_vector = None
     try:
-        if hasattr(response, 'data') and response.data:
-            # Check if embedding element can resolve index properties directly
+        if isinstance(response, list) and len(response) > 0:
+            query_vector = response[0].get('values') if isinstance(response[0], dict) else getattr(response[0], 'values', None)
+        elif hasattr(response, 'data'):
             if isinstance(response.data, list) and len(response.data) > 0:
-                item = response.data[0]
-                if hasattr(item, 'values'):
-                    query_vector = item.values
-                elif isinstance(item, dict):
-                    query_vector = item.get('values')
+                query_vector = response.data[0].get('values') if isinstance(response.data[0], dict) else getattr(response.data[0], 'values', None)
             else:
                 query_vector = getattr(response.data, 'values', None)
         elif hasattr(response, 'values'):
             query_vector = response.values
     except Exception as e:
-        print(f"⚠️ Vector Parser Fallback Intercept: {str(e)}")
+        print(f"⚠️ Vector Extractor Intercepted Flag: {str(e)}")
 
-    # Ensure payload contains an encoded type list sequence before serialization runs
+    # Emergency array list validation
     if query_vector is None or not isinstance(query_vector, list):
-        if hasattr(response, '__iter__'):
-            try:
-                query_vector = [float(x) for x in response]
-            except Exception:
-                query_vector = [0.0] * 1024
-        else:
+        try:
+            query_vector = response[0].values
+        except Exception:
             query_vector = [0.0] * 1024
 
     results = index.query(
@@ -256,3 +250,6 @@ if user_query:
         history_text = ""
         for m in st.session_state.chat_history[-4:]:
             role_label = "User" if m["role"] == "user" else "Assistant"
+            history_text += f"{role_label}: {m['content']}\n"
+
+context_str = "\n\n".join((doc.page_content for doc in matched_docs if doc.page_content != "No context found."))final_prompt_text = f"""Please answer my question using these referenced materials.Context from Rulebooks:{context_str}Recent Chat History:{history_text}User Question: {user_query}Assistant:"""# =========================================================================# ⚔️ ASSISTANT CHAT GENERATION ENGINE (STABLE NATIVE STREAMING)# =========================================================================with st.chat_message("assistant"):response_placeholder = st.empty()full_response = ""try:# 🚀 Clean text string routing completely bypasses validation schema bugsresponse_stream = ai_client.models.generate_content_stream(model='gemini-2.5-flash',contents=final_prompt_text,config=types.GenerateContentConfig(temperature=0.2,system_instruction=("You are an expert D&D 5e assistant. Answer the user's question using the provided ""retrieved context from the rulebooks. If the context does not contain the complete ""answer or stats, rely on your trusted D&D 5e knowledge to fulfill the answer accurately.")))for chunk in response_stream:if chunk.text:full_response += chunk.textresponse_placeholder.write(full_response + "▌")except Exception as e:full_response = f"⚠️ Tabletop Core Link Issue: {str(e)}"if not full_response.strip():full_response = "🧙‍♂️ The Loremaster could not assemble an answer. Try rephrasing your question."response_placeholder.write(full_response)st.session_state.chat_history.append({"role": "user", "content": user_query})st.session_state.chat_history.append({"role": "assistant", "content": full_response})# 📌 CITATION INTERFACE RENDERERif unique_sources and "could not assemble" not in full_response:sources_html = """Reference Lore Archives:"""st.markdown(sources_html, unsafe_allow_html=True)for source in unique_sources:with st.expander(source):matching_text = next((doc.page_content for doc in matched_docs if doc.metadata.get("source_label") == source),"Context block read error.")st.markdown(matching_text)
