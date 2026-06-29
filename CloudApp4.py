@@ -6,7 +6,7 @@ from types import ModuleType
 import importlib.machinery
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.messages import HumanMessage, tr
+from langchain_core.messages import HumanMessage, AIMessage
 from pinecone import Pinecone
 import os
 import google.generativeai as genai
