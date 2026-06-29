@@ -9,6 +9,7 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage
 from pinecone import Pinecone
 import os
+import google.generativeai as genai
 
 # Ultimate catch-all dynamic mock with structural loader compliance for Python 3.14
 @st.cache_resource
