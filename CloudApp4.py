@@ -279,34 +279,36 @@ if user_query:
                 last_user_msg = next((m['content'] for m in reversed(st.session_state.chat_history) if m['role'] == 'user'), "")
                 search_query = f"{last_user_msg} {user_query}"
 
-                matched_docs = vector_store.retrieve(search_query)
-                unique_sources = list(set([doc.metadata["source_label"] for doc in matched_docs if "source_label" in doc.metadata]))
-        
-        # 📜 1. Formulate chat history matching the Google SDK structure
-        native_history = []
-        for m in st.session_state.chat_history[-4:]:
-            # Map roles to Google expectations ('user' and 'model')
-            sdk_role = "user" if m["role"] == "user" else "model"
-            native_history.append({
-                "role": sdk_role,
-                "parts": [m["content"]]
-            })
+    # Ensure this block matches the exact indentation of your "matched_docs" line
+    matched_docs = vector_store.retrieve(search_query)
+    unique_sources = list(set([doc.metadata["source_label"] for doc in matched_docs if "source_label" in doc.metadata]))
+    
+    # 📜 1. Formulate chat history matching the Google SDK structure (Indented)
+    native_history = []
+    for m in st.session_state.chat_history[-4:]:
+        # Map roles to Google expectations ('user' and 'model')
+        sdk_role = "user" if m["role"] == "user" else "model"
+        native_history.append({
+            "role": sdk_role,
+            "parts": [m["content"]]
+        })
 
-        context_str = "\n\n".join([doc.page_content for doc in matched_docs if doc.page_content != "No context found."])
-        
-        # 🎯 2. Formulate your context and newest query into a single human string
-        final_prompt_text = f"""Please answer my question using these referenced materials.
+    # 🎯 2. Formulate your context and newest query into a single human string (Indented)
+    context_str = "\n\n".join([doc.page_content for doc in matched_docs if doc.page_content != "No context found."])
+    
+    final_prompt_text = f"""Please answer my question using these referenced materials.
 
 Context from Rulebooks:
 {context_str}
 
 User Question: {user_query}"""
 
-        # Append the current request payload to your conversation array
-        native_history.append({
-            "role": "user",
-            "parts": [final_prompt_text]
-        })
+    # 📌 3. Append current request string array element (Indented)
+    native_history.append({
+        "role": "user",
+        "parts": [final_prompt_text]
+    })
+
 
     # ==========================================
     # ⚔️ Assistant Chat Display & Stream
