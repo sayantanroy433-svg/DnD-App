@@ -137,7 +137,7 @@ ai_client = get_llm_service()
 # =========================================================================
 # 🔍 VECTOR DATABANK EXTRACTION ENGINE
 # =========================================================================
-@st.cache_data(show_spinner=False, ttl=3600)
+#@st.cache_data(show_spinner=False, ttl=3600)
 def cached_vector_search(query_text):
     if not query_text:
         return []
