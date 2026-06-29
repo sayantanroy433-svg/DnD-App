@@ -155,6 +155,11 @@ def get_llm_service():
     return genai.GenerativeModel(
         model_name="gemini-2.5-flash",
         generation_config={"temperature": 0.2}
+        system_instruction=(
+            "You are an expert D&D 5e assistant. Answer the user's question using the provided "
+            "retrieved context from the rulebooks. If the context does not contain the complete answer or stats, "
+            "rely on your trusted D&D 5e knowledge to fulfill the answer accurately."
+        )
     )
 
 llm = get_llm_service()
@@ -274,40 +279,53 @@ if user_query:
                 last_user_msg = next((m['content'] for m in reversed(st.session_state.chat_history) if m['role'] == 'user'), "")
                 search_query = f"{last_user_msg} {user_query}"
 
-        matched_docs = vector_store.retrieve(search_query)
+                matched_docs = vector_store.retrieve(search_query)
         unique_sources = list(set([doc.metadata["source_label"] for doc in matched_docs if "source_label" in doc.metadata]))
         
-        # 📜 Build a clean historical conversation list
-        messages = []
+        # 📜 1. Formulate chat history matching the Google SDK structure
+        native_history = []
         for m in st.session_state.chat_history[-4:]:
-            if m["role"] == "user":
-                messages.append(HumanMessage(content=m["content"]))
-            else:
-                messages.append(AIMessage(content=m["content"]))
+            # Map roles to Google expectations ('user' and 'model')
+            sdk_role = "user" if m["role"] == "user" else "model"
+            native_history.append({
+                "role": sdk_role,
+                "parts": [m["content"]]
+            })
 
         context_str = "\n\n".join([doc.page_content for doc in matched_docs if doc.page_content != "No context found."])
         
-        # 🎯 Combine system rules, vector context, and query into ONE final message
-        final_prompt = f"""You are an expert D&D 5e assistant. Answer the user's question using the following retrieved context from the rulebooks. If the context does not contain the complete answer or stats, rely on your trusted D&D 5e knowledge to fulfill the answer accurately.
+        # 🎯 2. Formulate your context and newest query into a single human string
+        final_prompt_text = f"""Please answer my question using these referenced materials.
 
-Context:
+Context from Rulebooks:
 {context_str}
 
 User Question: {user_query}"""
 
-        messages.append(HumanMessage(content=final_prompt))
+        # Append the current request payload to your conversation array
+        native_history.append({
+            "role": "user",
+            "parts": [final_prompt_text]
+        })
 
+    # ==========================================
+    # ⚔️ Assistant Chat Display & Stream
+    # ==========================================
     with st.chat_message("assistant"):
         response_placeholder = st.empty()
         full_response = ""
         
         try:
-            for chunk in llm.generate_content(messages, stream=True):
-                if chunk and hasattr(chunk, 'content'):
-                    full_response += chunk.content
+            # 🚀 3. Native SDK Stream Call using text chunk properties
+            response_stream = llm.generate_content(native_history, stream=True)
+            
+            for chunk in response_stream:
+                if chunk.text:
+                    full_response += chunk.text
                     response_placeholder.write(full_response + "▌")
+                    
         except Exception as e:
-            full_response = f"⚠️ Runtime Connection Issue: {str(e)}"
+            full_response = f"⚠️ Native Runtime Connection Issue: {str(e)}"
         
         if not full_response.strip():
             full_response = "🧙‍♂️ The Loremaster could not assemble an answer. Try rephrasing your question."
