@@ -5,7 +5,7 @@ import re
 import os
 from types import ModuleType
 import importlib.machinery
-from google import genai
+import google.genai as gemini_sdk
 from google.genai import types
 from pinecone import Pinecone
 
@@ -116,8 +116,8 @@ st.markdown(f"""
 # =========================================================================
 # 🔑 SECURITY CREDENTIALS & GLOBAL INSTANTIATION MAPS
 # =========================================================================
-GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
-PINECONE_API_KEY = st.secrets["PINECONE_API_KEY"]
+GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"].strip()
+PINECONE_API_KEY = st.secrets["PINECONE_API_KEY"].strip()
 PINECONE_INDEX_NAME = "dnd-index"
 
 os.environ["GOOGLE_API_KEY"] = GEMINI_API_KEY
@@ -129,8 +129,8 @@ index = pc.Index(PINECONE_INDEX_NAME)
 
 @st.cache_resource
 def get_llm_service():
-    # FIXED BOUND VALUE: Explicitly reference using the modern google namespace setup
-    return genai.Client(api_key=GEMINI_API_KEY)
+    # 🎯 FIX AUTHENTICATION: Target the alias layout precisely to force API Studio validation
+    return gemini_sdk.Client(api_key=GEMINI_API_KEY)
 
 ai_client = get_llm_service()
 
@@ -150,12 +150,13 @@ def cached_vector_search(query_text):
     
     query_vector = None
     try:
-        # Robust deep value extraction matrix for v9+ SDK objects
         if hasattr(response, 'data') and response.data:
             if isinstance(response.data, list) and len(response.data) > 0:
                 query_vector = response.data[0].values
             else:
                 query_vector = getattr(response.data, 'values', None)
+        elif hasattr(response, 'values'):
+            query_vector = response.values
         elif isinstance(response, list) and len(response) > 0:
             query_vector = response[0].values if hasattr(response[0], 'values') else response[0]
         else:
@@ -245,7 +246,6 @@ if user_query:
         matched_docs = vector_store.retrieve(search_query)
         unique_sources = list(set([doc.metadata["source_label"] for doc in matched_docs if "source_label" in doc.metadata]))
         
-        # 📜 1. Compress historical turns into a flat plain-text string block
         history_text = ""
         for m in st.session_state.chat_history[-4:]:
             role_label = "User" if m["role"] == "user" else "Assistant"
@@ -253,7 +253,6 @@ if user_query:
 
         context_str = "\n\n".join([doc.page_content for doc in matched_docs if doc.page_content != "No context found."])
         
-        # 🎯 2. Formulate your entire session prompt matrix into a single flat string variable
         final_prompt_text = f"""Please answer my question using these referenced materials.
 
 Context from Rulebooks:
@@ -267,39 +266,3 @@ Assistant:"""
 
     # =========================================================================
     # ⚔️ ASSISTANT CHAT GENERATION ENGINE (STABLE NATIVE STREAMING)
-    # =========================================================================
-    with st.chat_message("assistant"):
-        response_placeholder = st.empty()
-        full_response = ""
-        
-        try:
-            # 🚀 Passing a direct string bypasses list-of-dictionary schema validation completely
-            response_stream = ai_client.models.generate_content_stream(
-                model='gemini-2.5-flash',
-                contents=final_prompt_text,
-                config=types.GenerateContentConfig(
-                    temperature=0.2,
-                    system_instruction=(
-                        "You are an expert D&D 5e assistant. Answer the user's question using the provided "
-                        "retrieved context from the rulebooks. If the context does not contain the complete answer or stats, "
-                        "rely on your trusted D&D 5e knowledge to fulfill the answer accurately."
-                    )
-                )
-            )
-            
-            for chunk in response_stream:
-                if chunk.text:
-                    full_response += chunk.text
-                    response_placeholder.write(full_response + "▌")
-                    
-        except Exception as e:
-            full_response = f"⚠️ Tabletop Core Link Issue: {str(e)}"
-
-        if not full_response.strip():
-            full_response = "🧙‍♂️ The Loremaster could not assemble an answer. Try rephrasing your question."
-
-        response_placeholder.write(full_response)
-        
-        # Save exchange turns inside the active thread tracking session
-        st.session_state.chat_history.append({"role": "user", "content": user_query})
-        st.session_state.chat_history.append({"role": "assistant", "content": full_response})
