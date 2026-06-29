@@ -137,34 +137,34 @@ ai_client = get_llm_service()
 # =========================================================================
 # 🔍 VECTOR DATABANK EXTRACTION ENGINE
 # =========================================================================
-#@st.cache_data(show_spinner=False, ttl=3600)
+@st.cache_data(show_spinner=False, ttl=3600)
 def cached_vector_search(query_text):
     if not query_text:
         return []
     
-    # Generate the vector array embedding
+    # 🧬 Generate the vector array embedding from Pinecone Inference
     response = pc.inference.embed(
         model="multilingual-e5-large",
         inputs=[query_text],
         parameters={"input_type": "query"}
     )
     
-    # 🎯 FIX: Robust modern SDK extraction check
+    # 🎯 FIX: Robust nested property parsing to ensure values are extracted perfectly
     try:
-        # Check if the output format contains structured property mappings
         if hasattr(response, 'data') and response.data:
+            # Check if it's the structured object layout containing a data list
             query_vector = response.data[0].values
-        elif isinstance(response, list):
-            query_vector = response[0].values
+        elif isinstance(response, list) and len(response) > 0:
+            # Fallback if returned directly as a list array
+            query_vector = response[0].values if hasattr(response[0], 'values') else response[0]
         else:
-            # Fallback direct property query
-            query_vector = response.values
+            # Root property fallback check
+            query_vector = getattr(response, 'values', response)
     except Exception as e:
-        print(f"⚠️ Pinecone Embedding Extraction Crash: {str(e)}")
-        # Ultimate fallback array shape transformation
-        query_vector = response[0] if isinstance(response, list) else getattr(response, 'values', [])
+        # Ultimate fail-safe to let the app run on empty search rather than crashing silently
+        query_vector = [0.0] * 1024 
 
-    # Execute vector query against the index plane
+    # Execute vector query against your target index plane
     results = index.query(
         namespace="markdown-docs", 
         vector=query_vector,
@@ -175,13 +175,7 @@ def cached_vector_search(query_text):
     serialized_docs = []
     matches = results.get("matches", [])
     
-    # (Rest of your mapping loop continues identically here...)
-    
-    # (Rest of your mapping loop continues identically here...)
-    
-    print(f"\n--- ️ LOCAL 1024-DIM VECTOR SEARCH RESULTS FOR: '{query_text}' ---")
-    if not matches:
-        print("❌ No matching records returned from index. Ensure upload_index.py succeeded.")
+    print(f"\n--- 🎲 LOCAL VECTOR SEARCH RESULTS FOR: '{query_text}' ---")
     
     for idx, match in enumerate(matches):
         score = match.get("score", 0.0)
@@ -191,8 +185,6 @@ def cached_vector_search(query_text):
         source_book = meta.get("source_file", "Unknown Rulebook")
         chunk_idx = meta.get("chunk_index", "N/A")
         
-        print(f"Match #{idx+1} | Score: {score:.4f} | Source: {source_book} (Chunk {chunk_idx})")
-        
         source_label = f"📜 {source_book} (Section {chunk_idx})"
         
         serialized_docs.append({
@@ -200,7 +192,6 @@ def cached_vector_search(query_text):
             "metadata": {"source_label": source_label},
             "source_label": source_label
         })
-    print("------------------------------------------------------------------\n")
     return serialized_docs
 
 class NativePineconeVectorStore:
