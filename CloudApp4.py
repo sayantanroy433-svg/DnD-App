@@ -6,8 +6,9 @@ import importlib.machinery
 from types import ModuleType
 
 import streamlit as st
-import google.genai as gemini_sdk
+#import google.genai as gemini_sdk
 from google.genai import types
+from google import genai
 from pinecone import Pinecone
 
 # ============================================================================
@@ -205,7 +206,8 @@ def get_gemini_client():
     )
 
 
-ai_client = get_gemini_client()
+#ai_client = get_gemini_client()
+ai_client = genai.Client(api_key=GEMINI_API_KEY)
 
 # ============================================================================
 # 🌲 PINECONE CLIENT
