@@ -2,22 +2,21 @@ import base64
 import streamlit as st
 import sys
 import re
+import os
 from types import ModuleType
 import importlib.machinery
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.messages import HumanMessage, AIMessage
+from google import genai
+from google.genai import types
 from pinecone import Pinecone
-import os
-import google.generativeai as genai
 
-# Ultimate catch-all dynamic mock with structural loader compliance for Python 3.14
+# =========================================================================
+# 🛡️ ENVIRONMENT ENHANCEMENT: Architectural Dynamic System Mocking
+# =========================================================================
 @st.cache_resource
 def fix_environment_imports():
     class DummyLoader:
         def create_module(self, spec): return None
         def exec_module(self, module): pass
-
     class DeepMock(ModuleType):
         def __getattr__(self, name):
             if name in ('__path__', '__spec__'):
@@ -25,7 +24,6 @@ def fix_environment_imports():
             return DeepMock(f"{self.__name__}.{name}")
         def __call__(self, *args, **kwargs):
             return None
-
     class MockFinder:
         def find_spec(self, fullname, path, target=None):
             if fullname.startswith("torchvision"):
@@ -37,11 +35,13 @@ def fix_environment_imports():
                 sys.modules[fullname] = mock
                 return spec
             return None
-
     sys.meta_path.insert(0, MockFinder())
+
 fix_environment_imports()
 
+# =========================================================================
 # 🎨 CUSTOM STYLING: Dark Fantasy & Tabletop DM Screen Theme
+# =========================================================================
 st.set_page_config(page_title="Pocket D&D Loremaster", page_icon="🎲", layout="centered")
 
 def get_base64_image(image_path):
@@ -51,12 +51,10 @@ def get_base64_image(image_path):
     except Exception:
         return ""
 
-# Save your new checkerboard d20 image into your folder and ensure this filename matches perfectly
 img_base64 = get_base64_image("your_d20_image.png")
 
 st.markdown(f"""
 <style>
-    /* Global Background and Typography */
     .stApp {{
         background-color: #1a1613 !important;
         background-image: radial-gradient(#2d2219 1px, transparent 0) !important;
@@ -64,8 +62,6 @@ st.markdown(f"""
         color: #e3d1be !important;
         font-family: 'Georgia', serif !important;
     }}
-    
-    /* Centralized Layout Container */
     .brand-container {{
         display: flex;
         flex-direction: column;
@@ -75,45 +71,33 @@ st.markdown(f"""
         width: 100%;
         margin-bottom: 15px;
     }}
-    
-    /* ✅ FIXED: Swapped blend modes to 'screen' to completely evaporate the fake checkerboard mesh lines */
     .brand-logo {{
         width: 110px;
         height: auto;
         margin-bottom: 15px;
         mix-blend-mode: screen !important;
     }}
-    
-    /* Header Customization */
     h1 {{
-        color: #d4af37 !important; /* Gold */
+        color: #d4af37 !important;
         font-family: 'Georgia', serif !important;
         text-shadow: 2px 2px 4px #000000;
-        
         text-decoration: underline !important;
-        text-decoration-color: #8c2d19 !important; /* Deep Red Crimson */
-        text-underline-offset: 12px !important;    
-        text-decoration-thickness: 2px !important;  
-        
+        text-decoration-color: #8c2d19 !important;
+        text-underline-offset: 12px !important; 
+        text-decoration-thickness: 2px !important; 
         margin: 0px !important;
         padding-bottom: 5px !important;
         width: 100%;
     }}
-    
-    /* Text Color Normalization */
     .stMarkdown, p, span, label {{
         color: #e3d1be !important;
     }}
-    
-    /* Input Box Customization */
     .stChatInput textarea {{
         background-color: #2b221a !important;
         color: #f5eccd !important;
         border: 1px solid #8c2d19 !important;
         border-radius: 4px !important;
     }}
-    
-    /* Spinner Styling */
     .stSpinner > div {{
         border-top-color: #d4af37 !important;
     }}
@@ -129,58 +113,42 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# ==========================================
-# 🔑 Credentials & Global Configuration
-# ==========================================
+# =========================================================================
+# 🔑 SECURITY CREDENTIALS & GLOBAL INSTANTIATION MAPS
+# =========================================================================
 GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 PINECONE_API_KEY = st.secrets["PINECONE_API_KEY"]
 PINECONE_INDEX_NAME = "dnd-index"
 
-# Clean the API Key thoroughly
-api_key_clean = GEMINI_API_KEY
-
-# Overwrite environment variables for global fallback safety
-os.environ["GOOGLE_API_KEY"] = api_key_clean
-os.environ["GEMINI_API_KEY"] = api_key_clean
+os.environ["GOOGLE_API_KEY"] = GEMINI_API_KEY
+os.environ["GEMINI_API_KEY"] = GEMINI_API_KEY
 os.environ["PINECONE_API_KEY"] = PINECONE_API_KEY
 
-# Configure database elements
-genai.configure(api_key=api_key_clean)
 pc = Pinecone(api_key=PINECONE_API_KEY)
 index = pc.Index(PINECONE_INDEX_NAME)
 
-# 1. Clear out the broken LangChain constructor
+@st.cache_resource
 def get_llm_service():
-    # Use the official Client wrapper that natively handles AI Studio keys
-    return genai.GenerativeModel(
-        model_name="gemini-2.5-flash",
-        generation_config={"temperature": 0.2},
-        system_instruction=(
-            "You are an expert D&D 5e assistant. Answer the user's question using the provided "
-            "retrieved context from the rulebooks. If the context does not contain the complete answer or stats, "
-            "rely on your trusted D&D 5e knowledge to fulfill the answer accurately."
-        )
-    )
+    # Modern SDK initialization securely handles developer API studio keys
+    return genai.Client(api_key=GEMINI_API_KEY)
 
-llm = get_llm_service()
+ai_client = get_llm_service()
 
-# Low-latency integrated inference calculation caching
+# =========================================================================
+# 🔍 VECTOR DATABANK EXTRACTION ENGINE
+# =========================================================================
 @st.cache_data(show_spinner=False, ttl=3600)
 def cached_vector_search(query_text):
     if not query_text:
         return []
-        
-    # 1. Convert user's question to a 1024-dimension vector payload using global pc client
+    
     response = pc.inference.embed(
         model="multilingual-e5-large",
         inputs=[query_text],
         parameters={"input_type": "query"}
     )
     
-    # 🎯 FIX: Select index [0] to extract from the EmbeddingsList wrapper before calling .values
     query_vector = response[0].values
-
-    # 2. Query your populated 1024-dimension Pinecone layout
     results = index.query(
         namespace="markdown-docs", 
         vector=query_vector,
@@ -191,8 +159,7 @@ def cached_vector_search(query_text):
     serialized_docs = []
     matches = results.get("matches", [])
     
-    # 🎯 PRINT MATCHING SCORES TO CMD TERMINAL
-    print(f"\n--- 🗺️ LOCAL 1024-DIM VECTOR SEARCH RESULTS FOR: '{query_text}' ---")
+    print(f"\n--- ️ LOCAL 1024-DIM VECTOR SEARCH RESULTS FOR: '{query_text}' ---")
     if not matches:
         print("❌ No matching records returned from index. Ensure upload_index.py succeeded.")
     
@@ -204,7 +171,6 @@ def cached_vector_search(query_text):
         source_book = meta.get("source_file", "Unknown Rulebook")
         chunk_idx = meta.get("chunk_index", "N/A")
         
-        # Format the metric matching output for your cmd screen
         print(f"Match #{idx+1} | Score: {score:.4f} | Source: {source_book} (Chunk {chunk_idx})")
         
         source_label = f"📜 {source_book} (Section {chunk_idx})"
@@ -215,7 +181,6 @@ def cached_vector_search(query_text):
             "source_label": source_label
         })
     print("------------------------------------------------------------------\n")
-    
     return serialized_docs
 
 class NativePineconeVectorStore:
@@ -223,41 +188,30 @@ class NativePineconeVectorStore:
         self.index = index
         
     def retrieve(self, query_text):
-        from langchain_core.documents import Document
+        class SimpleDoc:
+            def __init__(self, content, metadata):
+                self.page_content = content
+                self.metadata = metadata
         raw_docs = cached_vector_search(query_text)
-        return [
-            Document(page_content=d["page_content"], metadata={**d["metadata"], "source_label": d["source_label"]}) 
-            for d in raw_docs
-        ]
+        return [SimpleDoc(d["page_content"], {**d["metadata"], "source_label": d["source_label"]}) for d in raw_docs]
 
 vector_store = NativePineconeVectorStore(index)
 
-@st.cache_resource
-def get_prompt_template():
-    system_prompt = (
-        "You are an expert D&D 5e assistant. Answer the user's question using the following "
-        "retrieved context from the rulebooks. If the context does not contain the complete answer or stats, "
-        "rely on your trusted D&D 5e knowledge to fulfill the answer accurately.\n\n"
-        "Context:\n{context}"
-    )
-    return ChatPromptTemplate.from_messages([
-        ("system", system_prompt),
-        MessagesPlaceholder("chat_history"),
-        ("human", "{input}"),
-    ])
-
-qa_prompt = get_prompt_template()
-
+# =========================================================================
+# 🎭 SESSION STATE STORAGE & UI CONVERSATION REPLAY
+# =========================================================================
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-# Display history
 for message in st.session_state.chat_history:
     with st.chat_message(message["role"]):
         st.write(message["content"])
 
 user_query = st.chat_input("Ask about a spell, class, or rule:")
 
+# =========================================================================
+# ⚡ CORE QUERY ORCHESTRATION PIPELINE
+# =========================================================================
 if user_query:
     with st.chat_message("user"):
         st.write(user_query)
@@ -279,81 +233,29 @@ if user_query:
                 last_user_msg = next((m['content'] for m in reversed(st.session_state.chat_history) if m['role'] == 'user'), "")
                 search_query = f"{last_user_msg} {user_query}"
 
-    # Ensure this block matches the exact indentation of your "matched_docs" line
-    matched_docs = vector_store.retrieve(search_query)
-    unique_sources = list(set([doc.metadata["source_label"] for doc in matched_docs if "source_label" in doc.metadata]))
-    
-    # 📜 1. Formulate chat history matching the Google SDK structure (Indented)
-    native_history = []
-    for m in st.session_state.chat_history[-4:]:
-        # Map roles to Google expectations ('user' and 'model')
-        sdk_role = "user" if m["role"] == "user" else "model"
-        native_history.append({
-            "role": sdk_role,
-            "parts": [m["content"]]
-        })
+        # 🎯 CRITICAL INDENT FIX: All calculations run safely inside the active user interaction scope
+        matched_docs = vector_store.retrieve(search_query)
+        unique_sources = list(set([doc.metadata["source_label"] for doc in matched_docs if "source_label" in doc.metadata]))
+        
+        # 📜 Formulate conversation string block history matching native SDK expectations
+        native_history = []
+        for m in st.session_state.chat_history[-4:]:
+            sdk_role = "user" if m["role"] == "user" else "model"
+            native_history.append(
+                types.Content(role=sdk_role, parts=[types.Part.from_text(text=m["content"])])
+            )
 
-    # 🎯 2. Formulate your context and newest query into a single human string (Indented)
-    context_str = "\n\n".join([doc.page_content for doc in matched_docs if doc.page_content != "No context found."])
-    
-    final_prompt_text = f"""Please answer my question using these referenced materials.
+        context_str = "\n\n".join([doc.page_content for doc in matched_docs if doc.page_content != "No context found."])
+        
+        final_prompt_text = f"""Please answer my question using these referenced materials.
 
 Context from Rulebooks:
 {context_str}
 
 User Question: {user_query}"""
 
-    # 📌 3. Append current request string array element (Indented)
-    native_history.append({
-        "role": "user",
-        "parts": [final_prompt_text]
-    })
+        # Append latest turn elements into the structural Content array
+        native_history.append(
+            types.Content(role="user", parts=[types.Part.from_text(text=final_prompt_text)])
+        )
 
-
-    # ==========================================
-    # ⚔️ Assistant Chat Display & Stream
-    # ==========================================
-    with st.chat_message("assistant"):
-        response_placeholder = st.empty()
-        full_response = ""
-        
-        try:
-            # 🚀 3. Native SDK Stream Call using text chunk properties
-            response_stream = llm.generate_content(native_history, stream=True)
-            
-            for chunk in response_stream:
-                if chunk.text:
-                    full_response += chunk.text
-                    response_placeholder.write(full_response + "▌")
-                    
-        except Exception as e:
-            full_response = f"⚠️ Native Runtime Connection Issue: {str(e)}"
-        
-        if not full_response.strip():
-            full_response = "🧙‍♂️ The Loremaster could not assemble an answer. Try rephrasing your question."
-        
-        # Ensure the final message replaces the blinking cursor line
-        response_placeholder.write(full_response)
-        
-        # 💾 MEMORY FIX: Append current exchange so history tracks across turns
-        st.session_state.chat_history.append({"role": "user", "content": user_query})
-        st.session_state.chat_history.append({"role": "assistant", "content": full_response})
-        
-        # 📌 VERIFIED SOURCES CITATION DISPLAY WITH SOURCE CONTEXT SNIPPETS
-        if unique_sources and "could not assemble" not in full_response:
-            sources_html = """
-            <div style='margin-top: 15px; padding-top: 8px; border-top: 1px dashed #614e3f; 
-                        color: #a18b76; font-size: 0.85em; font-style: italic;'>
-                Reference Lore Archives:
-            </div>
-            """
-            st.markdown(sources_html, unsafe_allow_html=True)
-            
-            # Dynamically loop and fill the expander boxes with matching text blocks
-            for source in unique_sources:
-                with st.expander(source):
-                    matching_text = next(
-                        (doc.page_content for doc in matched_docs if doc.metadata.get("source_label") == source), 
-                        "Context block read error."
-                    )
-                    st.markdown(matching_text)
