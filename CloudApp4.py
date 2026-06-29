@@ -133,7 +133,9 @@ st.markdown(f"""
 # 🔑 Credentials & Global Configuration
 # ==========================================
 GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
+api_key_clean = st.secrets["GEMINI_API_KEY"]
 PINECONE_API_KEY = st.secrets["PINECONE_API_KEY"]
+pinecone_key = st.secrets["PINECONE_API_KEY"]
 PINECONE_INDEX_NAME = "dnd-index"
 
 # 1. Clean the API Key thoroughly of breaks, tabs, or spaces
