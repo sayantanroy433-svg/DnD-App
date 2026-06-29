@@ -164,7 +164,6 @@ def get_llm_service():
     return ChatGoogleGenerativeAI(
         model="gemini-2.5-flash", 
         google_api_key=api_key_clean,
-        client_options=custom_options, # <-- Forces transport layer optimization
         temperature=0.2
     )
 
