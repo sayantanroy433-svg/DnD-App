@@ -154,7 +154,7 @@ def get_llm_service():
     # Use the official Client wrapper that natively handles AI Studio keys
     return genai.GenerativeModel(
         model_name="gemini-2.5-flash",
-        generation_config={"temperature": 0.2}
+        generation_config={"temperature": 0.2},
         system_instruction=(
             "You are an expert D&D 5e assistant. Answer the user's question using the provided "
             "retrieved context from the rulebooks. If the context does not contain the complete answer or stats, "
